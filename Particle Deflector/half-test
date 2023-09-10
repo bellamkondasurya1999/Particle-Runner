@@ -1,0 +1,167 @@
+let score = 0;
+let scroll = 10;
+let scrollBg = 0;
+let runner;
+let particles = [];
+let backgroundImg;
+let whiteParticleImg;
+let restart = false;
+let runnerImages = [];
+let newImageImg;
+let newImageVisible = false;
+
+function preload() {
+  backgroundImg = loadImage('bg.png');
+  whiteParticleImg = loadImage('white_particle.png');
+  newImageImg = loadImage('new_image.png');
+  runnerImages.push(loadImage('runner.png'));
+  runnerImages.push(loadImage('runner_blue.png'));
+}
+
+function setup() {
+  createCanvas(700, 400);
+  runner = new Runner();
+}
+
+function keyPressed() {
+  if (keyCode === 32) {
+    if (restart) {
+      restartGame();
+    } else {
+      runner.setImage('runner_blue');
+    }
+  }
+}
+
+function keyReleased() {
+  if (keyCode === 32) {
+    runner.setImage('runner');
+    newImageVisible = false; // Hide new image when key is released
+  }
+}
+
+function restartGame() {
+  restart = false;
+  score = 0;
+  scrollBg = 0;
+  scroll = 10;
+  particles = [];
+  runner.reset();
+  loop();
+}
+
+function gameOver() {
+  noLoop();
+  fill(255);
+  textSize(24);
+  text(`Game Over! Press any key to restart`, 45, height / 2);
+  restart = true;
+}
+
+function draw() {
+  let collisionOccurred = false;
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let particle = particles[i];
+    particle.show();
+    particle.move();
+
+    if (runner.collide(particle)) {
+      if (particle.type === 'white' && runner.colorIndex === 1) {
+        collisionOccurred = true;
+        newImageVisible = true; // Make new image visible on collision
+      } else {
+        gameOver();
+      }
+    }
+
+    if (particle.isOffScreen()) {
+      particles.splice(i, 1);
+    }
+  }
+
+  image(backgroundImg, -scrollBg, 0, width * 2, height);
+  image(backgroundImg, -scrollBg + width, 0, width * 2, height);
+
+  fill(255);
+  textSize(32);
+  textFont('monospace');
+  text(`Score: ${score}`, 10, 30);
+
+  if (collisionOccurred) {
+    image(newImageImg, width - 50, 10, 40, 40);
+  }
+
+  runner.show();
+  runner.move();
+
+  if (scrollBg > width) {
+    scrollBg = 0;
+  }
+
+  if (random(1) < 0.75 && frameCount % 50 === 0) {
+    particles.push(new Particle());
+  }
+
+  scroll += 0.002;
+  scrollBg += scroll / 5;
+}
+
+class Runner {
+  constructor() {
+    this.size = 50;
+    this.x = 50;
+    this.y = height - this.size;
+    this.vy = 0;
+    this.gravity = 1;
+    this.colorIndex = 0; // Current color index. 0 = normal, 1 = blue
+  }
+
+  show() {
+    // Use the image of runner corresponding to colorIndex
+    image(runnerImages[this.colorIndex], this.x, this.y, this.size, this.size);
+  }
+
+  move() {
+    this.y += this.vy;
+    this.vy += this.gravity;
+    this.y = constrain(this.y, 0, height - this.size);
+  }
+  
+  setImage(imageName) {
+    // Set the color index based on the image name
+    this.colorIndex = imageName === 'runner' ? 0 : 1;
+  }
+
+  collide(particle) {
+    let hit = collideRectRect(this.x, this.y, this.size, this.size, particle.x, particle.y, particle.size, particle.size);
+    return hit;
+  }
+
+  reset() {
+    this.y = height - this.size;
+    this.vy = 0;
+  }
+}
+
+class Particle {
+  constructor() {
+    this.size = 50;
+    this.x = width;
+    this.y = height - this.size;
+    this.vx = -scroll;
+    this.type = 'white'; // Set type as white
+  }
+
+  show() {
+    image(whiteParticleImg, this.x, this.y, this.size, this.size);
+  }
+
+  move() {
+    this.x += this.vx;
+  }
+
+  isOffScreen() {
+    return this.x < -this.size;
+  }
+}

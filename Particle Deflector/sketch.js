@@ -1,0 +1,290 @@
+let score = 0;
+let scroll = 10;
+let scrollBg = 0;
+let runner;
+let particles = [];
+let backgroundImg;
+let whiteParticleImg;
+let restart = false;
+let runnerImages = [];
+let collisionImage;
+let collisionOccurred = false;
+
+function preload() {
+  backgroundImg = loadImage('bg.jpg');
+  whiteParticleImg = loadImage('white_particle.png');
+  collisionImage = loadImage('collision_image.png');
+
+  // Load the images for the runner
+  runnerImages.push(loadImage('runner.png'));
+  runnerImages.push(loadImage('runner_blue.png'));
+}
+
+function setup() {
+  createCanvas(700, 400);
+  runner = new Runner();
+
+  createP('Controls: ');
+  createP('Press any key to change the wave to particle. Release the key to revert to the original color!');
+  createP('<hr>');
+  createP('Plot:');
+  createP('Quantum Particle Runner is an exciting game where you control the runner who travels along the quantum path. The path is filled with particles like protons, neutrons, quants, and bad particles. When the runner collides with these particles, interesting things happen. Colliding with protons enlarges the runner, neutrons turn the cloud into blue, quants turn the cloud into gold, and bad particles decrease the size of the runner. Be careful and navigate through the quantum world with precision!');
+  createP('<hr>');
+}
+
+function keyPressed() {
+  if (keyCode === 32) { // 32 is the keycode for the space bar
+    if (restart) {
+      restartGame();
+    } else {
+      runner.setImage('runner_blue'); // Change the runner's image to runner_blue when any key is pressed
+    }
+  }
+}
+
+function keyReleased() {
+  if (keyCode === 32) { // 32 is the keycode for the space bar
+    runner.setImage('runner'); // Change the runner's image back to runner when the key is released
+  }
+}
+
+function restartGame() {
+  restart = false;
+  score = 0;
+  scrollBg = 0;
+  scroll = 10;
+  particles = [];
+  runner.reset();
+  loop();
+}
+
+function gameOver() {
+  noLoop();
+  fill(255);
+  textSize(24);
+  text(`Game Over! Press any key to restart`, 45, height / 2);
+  restart = true;
+}
+
+function draw() {
+  let collisionScore = 0; // Variable to track the score for each collision
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let particle = particles[i];
+    particle.move();
+    particle.show();
+
+    if (runner.collide(particle)) {
+      if (particle.type === 'white' && runner.colorIndex === 1) {
+        particle.bounceAway();
+        collisionScore++; // Increment the collision score
+        collisionOccurred = true;
+      } else {
+        gameOver();
+      }
+    }
+
+    if (particle.isOffScreen()) {
+      particles.splice(i, 1);
+    }
+  }
+
+  if (collisionOccurred) {
+    image(collisionImage, width - collisionImage.width - 10, 10);
+  }
+
+  collisionOccurred = false;
+
+  score = collisionScore; // Update the score with the collision score
+
+  // Rest of the code...
+
+
+
+  image(backgroundImg, -scrollBg, 0, width, height);
+  image(backgroundImg, -scrollBg + width, 0, width, height);
+
+  if (scrollBg > width) {
+    scrollBg = 0;
+  }
+
+  if (random(1) < 0.75 && frameCount % 50 === 0) {
+    particles.push(new Particle());
+  }
+
+  fill(255);
+  textSize(32);
+  textFont('monospace');
+  text(`Score: ${score}`, 10, 30);
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let particle = particles[i];
+    particle.move();
+    particle.show();
+
+    if (runner.collide(particle)) {
+      if (particle.type === 'white' && runner.colorIndex === 1) {
+        particle.bounceAway();
+      } else {
+        gameOver();
+      }
+    }
+
+    if (particle.isOffScreen()) {
+      particles.splice(i, 1);
+    }
+  }
+
+  runner.show();
+  runner.move();
+
+  scroll += 0.002;
+  scrollBg += scroll / 5;
+}
+
+class Runner {
+  constructor() {
+    this.size = 50;
+    this.x = 50;
+   this.y = height - this.size;
+    this.vy = 0;
+    this.gravity = 2;
+    this.colorIndex = 0;
+  }
+
+  collideWithBlueParticle(particle) {
+    // Calculate the angle and distance for the bounce
+    let angle = radians(45);
+    let distance = width;
+  
+    // Move the white particle away in the calculated trajectory
+    particle.x += cos(angle) * distance;
+    particle.y -= sin(angle) * distance;
+  }
+  
+
+  move() {
+    this.y += this.vy;
+    this.vy += this.gravity;
+    this.y = constrain(this.y, 0, height - this.size);
+  }
+
+  collide(particle) {
+    let hitX = this.x + this.size > particle.x && this.x < particle.x + particle.size;
+    let hitY = this.y + this.size > particle.y && this.y < particle.y + particle.size;
+
+    return hitX && hitY;
+  }
+
+  setImage(imageName) {
+    let imageIndex = 0;
+    if (imageName === 'runner_blue') {
+      imageIndex = 1;
+    }
+    this.colorIndex = imageIndex;
+  }
+
+  reset() {
+    this.size = 50;
+    this.x = 50;
+    this.y = height - this.size;
+    this.vy = 0;
+    this.colorIndex = 0;
+  }
+
+  show() {
+    let runnerImage = runnerImages[this.colorIndex];
+    image(runnerImage, this.x, this.y, this.size, this.size);
+  }
+}
+
+class Particle {
+  constructor() {
+    this.bounce=false;
+    this.size = 30;
+    this.x = width;
+    this.y = height - this.size;
+    this.type = 'white';
+    this.velocity = createVector(0, 0);
+  }
+
+  move() {
+    // Update the particle's position based on velocity
+    this.x += this.velocity.x;
+    this.y += this.velocity.y;
+
+    // Apply gravity to the velocity
+    this.velocity.y += 0.2;
+
+    // Apply air resistance
+    this.velocity.mult(0.99);
+
+    // Check if the particle hits the ground (bottom of the canvas)
+    if (this.y + this.size > height) {
+      // Reverse the y-component of velocity to simulate bouncing
+      this.velocity.y *= -0.8;
+
+      // Dampen the bouncing effect over time
+      if (abs(this.velocity.y) < 1) {
+        this.velocity.y = 0;
+        this.y = height - this.size; // Set the particle back to the ground
+      }
+    }
+
+    // Apply horizontal scrolling
+    this.x -= scroll;
+  }
+  // move() {
+  //   if (this.bounce) {
+  //     // Move the particle in a bouncing motion
+  //     //this.x += scroll;
+  //     this.x +=this.velocity.x;
+  //     //this.y -= scroll;
+  //     this.y +=this.velocity.y;
+  //   } else {
+  //     // Move the particle normally
+  //     this.x -= scroll;
+  //   }
+  // }
+  // move() {
+  //   this.x -= scroll;
+  // }
+
+  isOffScreen() {
+    return this.x + this.size < 0;
+  }
+
+  bounceAway() {
+    // Set the trajectory angle to 45 degrees (in radians)
+    let angle = radians(45);
+  
+    // Calculate the distance to the top right corner
+    let distance = dist(this.x, this.y, width, 0);
+  
+    // Calculate the step size for the trajectory motion
+    let stepSize = 5;
+  
+    // Calculate the velocity components based on the angle and distance
+    let velocityX = cos(angle) * distance / stepSize;
+    let velocityY = -sin(angle) * distance / stepSize;
+  
+    // Set the particle's velocity to the calculated trajectory velocity
+    this.velocity = createVector(velocityX, velocityY);
+  
+    // Set the particle's position to the collision position
+    this.x = runner.x + runner.size / 2;
+    this.y = runner.y + runner.size / 2;
+  }
+  
+  // bounceAway() {
+  //   let angle = radians(); // Angle in radians
+  //   let distance = width; // Distance to bounce away the particle
+  //   this.x += cos(angle) * distance;
+  //   this.y -= sin(angle) * distance;
+  // }
+
+  show() {
+    image(whiteParticleImg, this.x, this.y, this.size, this.size);
+  }
+}
+
